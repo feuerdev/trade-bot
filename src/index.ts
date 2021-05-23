@@ -20,7 +20,7 @@ Strategy:
 const connection = new WebSocket(urlWsApi)
 const api = new Futures()
 
-let data = {
+const data = {
   open: [] as number[],
   high: [] as number[],
   low:  [] as number[],
@@ -32,7 +32,7 @@ let data = {
 connection.on("open", () => {
   console.log("established")
   
-  let sub = {  
+  const sub = {  
     "event":"subscribe",
     "feed":"ticker",
     "product_ids":[  
@@ -42,8 +42,8 @@ connection.on("open", () => {
   connection.send(JSON.stringify(sub))
 })
 
-connection.on("message", (data:any) => {
-  const json = JSON.parse(data)
+connection.on("message", (data:WebSocket.Data) => {
+  const json = JSON.parse(data as string)
   if(!json.event && json.feed == "ticker") {
     addData(json.time, json.last)
   }
@@ -69,7 +69,7 @@ function addData(time: number, price:number) {
     data.high.push(curHigh)
     data.low.push(curLow)
 
-    let ashis = Indicators.HeikinAshi.calculate(data)
+    const ashis = Indicators.HeikinAshi.calculate(data)
     checkSignal(ashis)
     curTime = null
   } else {
@@ -83,21 +83,32 @@ let hasPositionOpen = false
 let positionIsBuy:boolean
 let positionEntry:number
 function checkSignal(ashis:Indicators.CandleList) {
-  const len = ashis.open!.length
+  const len = ashis.open?.length ?? 0
   if (!hasPositionOpen) {
     if (len > 3) {
-      let colors:boolean[] = []
+      const colors:boolean[] = []
       for(let i = 1; i<=3; i++) {
-        let open = ashis.open![len-i]!
-        let close = ashis.close![len-i]!
+        const open = ashis.open?.[len-i]
+        const close = ashis.close?.[len-i]
+        if(!open || !close) {
+          throw "Weird Values"
+        }
+        
         colors.push(close > open)
+        
       }
       if(colors[0] == colors[1] == colors[2]) {
+        const entry = ashis.open?.[len-1]
+        const isBuy = colors?.[0]
+        if(!entry || !isBuy) {
+          throw "Weird values"
+        }
+
         //Signal found!
         hasPositionOpen = true
-        positionIsBuy = colors[0]!
-        positionEntry = ashis.open![len-1]!
-        console.log("Signal Found: "+(colors[0]? "Buy" : "Sell")+" at "+ashis.open![len-1])
+        positionEntry = entry
+        positionIsBuy = isBuy
+        console.log("Signal Found: "+(colors[0]? "Buy" : "Sell")+" at "+entry)
         //Send order here
         open(positionIsBuy)
       } else {
@@ -105,13 +116,16 @@ function checkSignal(ashis:Indicators.CandleList) {
       }
     }
   } else {
-    let lastOpen = ashis.open![len-1]!
-    let lastClose = ashis.close![len-1]!
+    const lastOpen = ashis.open?.[len-1]
+    const lastClose = ashis.close?.[len-1]
+    if(!lastClose || !lastOpen) {
+      throw "Weird Values"
+    }
     const lastIsGreen = lastClose > lastOpen
     if (lastIsGreen != positionIsBuy) {
-      let currentPrice = ashis.open![len-1]!
-      let diff = ((currentPrice-positionEntry)/positionEntry) * 100
-      let profit = positionIsBuy ? diff : diff*-1
+      const currentPrice = lastOpen
+      const diff = ((currentPrice-positionEntry)/positionEntry) * 100
+      const profit = positionIsBuy ? diff : diff*-1
       console.log("Closing Position at "+ currentPrice +"! Profit: "+ profit+ "%")
       close(positionIsBuy)
       hasPositionOpen = false
@@ -122,7 +136,7 @@ function checkSignal(ashis:Indicators.CandleList) {
 }
 
 async function open(isBuy:boolean) {
-  let params = {
+  const params = {
     orderType: 'mkt',
     symbol: 'pi_xbtusd',
     side: isBuy ? "buy" : "sell",
@@ -134,7 +148,7 @@ async function open(isBuy:boolean) {
 }
 
 async function close(isBuy:boolean) {
-  let params = {
+  const params = {
     orderType: 'mkt',
     symbol: 'pi_xbtusd',
     side: !isBuy ? "buy" : "sell",
