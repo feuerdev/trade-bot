@@ -14,7 +14,6 @@ Strategy:
 
 */
 
-
  const urlWsApi = "wss://futures.kraken.com/ws/v1"
 //const urlWsApi = "wss://demo-futures.kraken.com/ws/v1"
 const connection = new WebSocket(urlWsApi)
@@ -53,10 +52,10 @@ let curOpen:number
 let curClose:number
 let curHigh:number
 let curLow:number
-let curTime:number | null
+let curTime:number | undefined
 
 function addData(time: number, price:number) {
-  if (curTime == null) {
+  if (!curTime) {
     curTime = time
     curOpen = price
     curLow = price
@@ -71,7 +70,7 @@ function addData(time: number, price:number) {
 
     const ashis = Indicators.HeikinAshi.calculate(data)
     checkSignal(ashis)
-    curTime = null
+    curTime = undefined
   } else {
     //update values
     curLow = Math.min(price, curLow)
